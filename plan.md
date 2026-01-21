@@ -7,6 +7,7 @@ The Ghost Port Manager Daemon (GPMD) is the network manager for the Ghost Networ
 
 **Features**
 - [x] ([F001](feature/feature-001.md)) Create the structure for keeping track of Virtual Machines on the device.
+- [ ] ([F002](feature/feature-002.md)) Add ability for GPMD to facilitate connection between two nodes.
 
 
 **Dependencies**
