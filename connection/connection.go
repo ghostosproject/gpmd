@@ -63,9 +63,9 @@ func HandleGPMDConnection(conn net.Conn, nodes *map[string]Node, conns *map[net.
 
 		var msg gmp.Message
 		json.Unmarshal(buffer[:n], &msg)
-		if msg.Type == 1 { // a GMPD connection
+		if msg.Type == gmp.MESSAGE_TYPE_GPMD { // a GMPD connection
 			// look at msg code
-			if msg.Code == 1 {
+			if msg.Code == gmp.GMPD_REGISTER {
 				// register node and send back connection accepted
 				addr := strings.Split(conn.RemoteAddr().String(), ":")
 
@@ -76,8 +76,8 @@ func HandleGPMDConnection(conn net.Conn, nodes *map[string]Node, conns *map[net.
 				node := connection.Node
 				if nds[node.Name].Active {
 					ret := gmp.Message{
-						Type: 1,
-						Code: 4,
+						Type: gmp.MESSAGE_TYPE_GPMD,
+						Code: gmp.GMPD_REGISTER_DENIED,
 						Body: "A Node already is connected with that name..",
 					}
 					retMsg, err := json.Marshal(ret)
@@ -104,8 +104,8 @@ func HandleGPMDConnection(conn net.Conn, nodes *map[string]Node, conns *map[net.
 
 				// if successful
 				ret := gmp.Message{
-					Type: 1,
-					Code: 3,
+					Type: gmp.MESSAGE_TYPE_GPMD,
+					Code: gmp.GMPD_REGISTER_ACCEPT,
 				}
 				retMsg, err := json.Marshal(ret)
 				if err != nil {
@@ -113,6 +113,60 @@ func HandleGPMDConnection(conn net.Conn, nodes *map[string]Node, conns *map[net.
 					continue
 				}
 				conn.Write(retMsg)
+			}
+			if msg.Code == gmp.GMPD_REQUEST_NODE_CONN {
+				var connection Connection
+
+				err := json.Unmarshal([]byte(msg.Body), &connection)
+				if err != nil {
+					fmt.Printf("Error (connection.go:122): %v\n", err)
+				}
+				node := connection.Node
+				fmt.Println(node.Name)
+				// look for node
+				respNode := nds[node.Name]
+				fmt.Println(respNode)
+				if respNode == (Node{}) {
+					respMsg := gmp.Message{
+						Type: gmp.MESSAGE_TYPE_GPMD,
+						Code: gmp.GMPD_NODE_CONN_DENIED,
+						Body: "Node not found",
+					}
+					respBts, err := json.Marshal(respMsg)
+					if err != nil {
+						fmt.Println("Error (connection.go:136): ", err)
+					}
+					conn.Write(respBts)
+					continue
+				}
+				if !respNode.Active {
+					respMsg := gmp.Message{
+						Type: gmp.MESSAGE_TYPE_GPMD,
+						Code: gmp.GMPD_NODE_CONN_DENIED,
+						Body: "Node not found",
+					}
+					respBts, err := json.Marshal(respMsg)
+					if err != nil {
+						fmt.Println("Error (connection.go:136): ", err)
+					}
+					conn.Write(respBts)
+					continue
+				}
+				nodeBts, err := json.Marshal(respNode)
+				if err != nil {
+					fmt.Println("Error (connection.go:157): ", err)
+				}
+				respMsg := gmp.Message{
+					Type: gmp.MESSAGE_TYPE_GPMD,
+					Code: gmp.GMPD_NODE_CONN_ACCEPT,
+					Body: string(nodeBts),
+				}
+				respBts, err := json.Marshal(respMsg)
+				if err != nil {
+					fmt.Println("Error (connection.go:166): ", err)
+				}
+				conn.Write(respBts)
+
 			}
 		}
 
