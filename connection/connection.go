@@ -113,8 +113,7 @@ func HandleGPMDConnection(conn net.Conn, nodes *map[string]Node, conns *map[net.
 					continue
 				}
 				conn.Write(retMsg)
-			}
-			if msg.Code == gmp.GMPD_REQUEST_NODE_CONN {
+			} else if msg.Code == gmp.GMPD_REQUEST_NODE_CONN {
 				var connection Connection
 
 				err := json.Unmarshal([]byte(msg.Body), &connection)
@@ -164,6 +163,26 @@ func HandleGPMDConnection(conn net.Conn, nodes *map[string]Node, conns *map[net.
 				respBts, err := json.Marshal(respMsg)
 				if err != nil {
 					fmt.Println("Error (connection.go:166): ", err)
+				}
+				conn.Write(respBts)
+
+			} else if msg.Code == gmp.GMPD_NODE_DISCOVER {
+				items := []string{}
+				for name, node := range nds {
+					if node.Active {
+						items = append(items, name)
+					}
+
+				}
+
+				respMsg := gmp.Message{
+					Type: gmp.MESSAGE_TYPE_GPMD,
+					Code: gmp.GMPD_NODE_DISCOVER,
+					Body: strings.Join(items, ","),
+				}
+				respBts, err := json.Marshal(respMsg)
+				if err != nil {
+					fmt.Println("Error (connection.go:182): ", err)
 				}
 				conn.Write(respBts)
 
