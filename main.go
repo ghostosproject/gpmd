@@ -1,23 +1,29 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"log"
+	"net"
 	"os"
 	"os/exec"
 	"runtime"
 	"slices"
-	"strconv"
 	"syscall"
 
+	"github.com/ghostosproject/gpmd/background"
 	"github.com/ghostosproject/gpmd/module"
 	"github.com/ghostosproject/gpmd/server"
 )
 
-// create the node structure
-// what needs to be saved?
-
 func main() {
+	uploadCmd := flag.NewFlagSet("upload", flag.ExitOnError)
+	name := uploadCmd.String("name", "test", "Module Name")
+	version := uploadCmd.String("version", "", "Module Version")
+	file := uploadCmd.String("file", "", "Location of File")
+
+	// Parse the flags
+	flag.Parse()
 	args := os.Args
 	if len(args) <= 1 {
 		fmt.Println("--help")
@@ -26,11 +32,14 @@ func main() {
 	switch args[1] {
 	case "start":
 		if len(args) > 2 && args[2] == "nd" {
-			module.CreateModuleService()
+			mod := module.CreateModuleService()
+			go background.Server(&mod)
 			server.Server()
 		} else {
 			if isDetachedMode() {
-				module.CreateModuleService()
+				mod := module.CreateModuleService()
+				// run a command server for running commands
+				go background.Server(&mod)
 				server.Server()
 				return
 			}
@@ -39,18 +48,51 @@ func main() {
 				log.Fatal(err)
 			}
 
-			fmt.Println("Main process exiting, detached process is running in the background.")
+			fmt.Println("GPMD is running in the background.")
+		}
+	case "wasm":
+		if args[2] == "upload" {
+			uploadCmd.Parse(os.Args[3:])
+
+			cn, err := net.Dial("tcp", "localhost:1111")
+			if err != nil {
+				fmt.Printf("Error connecting to the node\n")
+			}
+
+			bdy := fmt.Appendf(nil, "upload,%s,%s,%s", *name, *version, *file)
+
+			_, err = cn.Write(bdy)
+			if err != nil {
+				fmt.Println("Error: ", err)
+			}
+
+			buffer := make([]byte, 1024) // Create a buffer of 1024 bytes
+			n, err := cn.Read(buffer)
+			if err != nil {
+				fmt.Println(err)
+			}
+			fmt.Println(string(buffer[:n]))
+
 		}
 	case "kill":
-		bts, err := os.ReadFile("access.log")
-		pid, err := strconv.Atoi(string(bts))
-		process, err := os.FindProcess(pid)
-
+		cn, err := net.Dial("tcp", "localhost:1111")
 		if err != nil {
-			fmt.Printf("Error finding process: %v\n", err)
-			return
+			fmt.Printf("Error connecting to the gpmd\n")
 		}
-		process.Kill()
+
+		bdy := []byte("kill")
+
+		_, err = cn.Write(bdy)
+		if err != nil {
+			fmt.Println("Error: ", err)
+		}
+
+		buffer := make([]byte, 1024) // Create a buffer of 1024 bytes
+		n, err := cn.Read(buffer)
+		if err != nil {
+			fmt.Println(err)
+		}
+		fmt.Println(string(buffer[:n]))
 	}
 
 }
@@ -77,12 +119,9 @@ func rerunDetached() error {
 		// 	CreationFlags: syscall.CREATE_NEW_PROCESS_GROUP | syscall.DETACHED_PROCESS,
 		// }
 	} else {
-		// Unix-like systems (Linux, macOS): use Setpgid to create a new process group
-		// and redirect I/O to /dev/null to survive terminal exit (SIGHUP)
 		cmd.SysProcAttr = &syscall.SysProcAttr{
 			Setpgid: true,
 		}
-		// Redirect standard files to /dev/null to prevent the parent terminal from holding the child
 		cmd.Stdin = nil // or os.Open(os.DevNull)
 		cmd.Stdout = nil
 		cmd.Stderr = nil
@@ -92,17 +131,6 @@ func rerunDetached() error {
 	if err != nil {
 		return err
 	}
-
-	pid := cmd.Process.Pid
-	f, err := os.OpenFile("access.log", os.O_CREATE|os.O_WRONLY, 0644)
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer f.Close()
-
-	f.Write([]byte(strconv.Itoa(pid)))
-
-	// Release the process handle in the parent process so it doesn't wait for the child
 	err = cmd.Process.Release()
 	if err != nil {
 		log.Printf("Warning: Failed to release process: %v\n", err)
