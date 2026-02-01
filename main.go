@@ -34,13 +34,13 @@ func main() {
 		if len(args) > 2 && args[2] == "nd" {
 			mod := module.CreateModuleService()
 			go background.Server(&mod)
-			server.Server()
+			server.Server(&mod)
 		} else {
 			if isDetachedMode() {
 				mod := module.CreateModuleService()
 				// run a command server for running commands
 				go background.Server(&mod)
-				server.Server()
+				server.Server(&mod)
 				return
 			}
 			err := rerunDetached()

@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/ghostosproject/ghost-network-common/gmp"
+	"github.com/ghostosproject/gpmd/module"
 )
 
 type Connection struct {
@@ -25,7 +26,7 @@ type Node struct {
 	conn    net.Conn
 }
 
-func HandleGPMDConnection(conn net.Conn, nodes *map[string]Node, conns *map[net.Conn]string) {
+func HandleGPMDConnection(conn net.Conn, nodes *map[string]Node, conns *map[net.Conn]string, mod *module.ModuleService) {
 	defer conn.Close()
 
 	addr := strings.Split(conn.RemoteAddr().String(), ":")
@@ -185,6 +186,51 @@ func HandleGPMDConnection(conn net.Conn, nodes *map[string]Node, conns *map[net.
 					fmt.Println("Error (connection.go:182): ", err)
 				}
 				conn.Write(respBts)
+
+			}
+		} else if msg.Type == gmp.MESSAGE_TYPE_WASM_REQ {
+			if msg.Code == gmp.WASM_REQ_MODULE {
+				var req gmp.WasmRequest
+
+				err := json.Unmarshal([]byte(msg.Body), &req)
+				if err != nil {
+					fmt.Printf("Error (connection.go:196): %v\n", err)
+				}
+				modRes, err := mod.GetModule(req.Module, req.Version)
+				if err != nil {
+					resMsg := gmp.Message{
+						Type: gmp.MESSAGE_TYPE_WASM_REQ,
+						Code: gmp.WASM_REQ_RESPONSE_NOT_FOUND,
+					}
+
+					modResBts, err := json.Marshal(resMsg)
+					if err != nil {
+						fmt.Printf("Error (connection.go:196): %v\n", err)
+					}
+					conn.Write(modResBts)
+					continue
+				}
+
+				modResBts, err := json.Marshal(modRes)
+				if err != nil {
+					fmt.Printf("Error (connection.go:196): %v\n", err)
+				}
+
+				resMsg := gmp.Message{
+					Type: gmp.MESSAGE_TYPE_WASM_REQ,
+					Code: gmp.WASM_REQ_RESPONSE_W_BODY,
+					Body: string(modResBts),
+				}
+
+				modResBts, err = json.Marshal(resMsg)
+				if err != nil {
+					fmt.Printf("Error (connection.go:196): %v\n", err)
+				}
+
+				_, err = conn.Write(modResBts)
+				if err != nil {
+					fmt.Println("Error: ", err)
+				}
 
 			}
 		}

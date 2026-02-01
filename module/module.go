@@ -36,8 +36,19 @@ func (mod ModuleService) Print() {
 }
 
 func (mod ModuleService) GetModule(name, version string) (ModuleReturn, error) {
+	md := mod.Modules[name]
+	if md.Name == "" {
+		return ModuleReturn{}, fmt.Errorf("Module Not Found")
+	}
+
+	if version == "" {
+		for v := range md.Versions {
+			if v > version {
+				version = v
+			}
+		}
+	}
 	module := mod.Modules[name].Versions[version]
-	fmt.Println(module.File)
 	bts, err := os.ReadFile(mod.WorkingDir + "/" + module.File)
 	if err != nil {
 		fmt.Println("could not read file: ", err)

@@ -6,9 +6,10 @@ import (
 	"os"
 
 	"github.com/ghostosproject/gpmd/connection"
+	"github.com/ghostosproject/gpmd/module"
 )
 
-func Server() {
+func Server(mod *module.ModuleService) {
 	listener, err := net.Listen("tcp", ":5989")
 	if err != nil {
 		log.Printf("Error setting up tcp listener: %v\n", err)
@@ -24,6 +25,6 @@ func Server() {
 			log.Printf("Error accepting connection: %v", err)
 			continue // Continue listening for other connections
 		}
-		go connection.HandleGPMDConnection(conn, &nodes, &conns)
+		go connection.HandleGPMDConnection(conn, &nodes, &conns, mod)
 	}
 }
