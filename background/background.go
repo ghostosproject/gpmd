@@ -25,12 +25,14 @@ func HandleBackgroundConnection(conn net.Conn, mod *module.ModuleService) {
 		if len(args) == 1 {
 			if args[0] == "kill" {
 				conn.Write([]byte("gmpd stopped"))
+				conn.Close()
 				os.Exit(0)
 				return
 			}
 		}
 		if len(args) != 4 {
 			conn.Write([]byte("Not enough args"))
+			conn.Close()
 			return
 		}
 		if args[0] == "upload" {
@@ -39,6 +41,9 @@ func HandleBackgroundConnection(conn net.Conn, mod *module.ModuleService) {
 				conn.Write([]byte(err.Error()))
 				return
 			}
+			conn.Write([]byte("Module Uploaded Successfully!"))
+			conn.Close()
+			return
 		}
 
 	}
