@@ -12,6 +12,8 @@ The Ghost Port Manager Daemon (GPMD) is the network manager for the Ghost Networ
 - [x] ([F004](feature/feature-004.md)) Add Wasm Module Request support
 - [x] ([F005](feature/feature-005.md)) Add detached mode for GMPD & other flags
 
+**Bugs**
+- [x] ([B001](bug/bug-001.md)) gpmd wasm upload command not exiting connection when complete
 
 **Dependencies**
 - [x] GMP - Ghost Network Common (Ghost Message Protocol) v0.0.5
