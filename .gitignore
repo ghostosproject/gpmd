@@ -1,2 +1,3 @@
 .ghost-network
 *.log
+*.key
