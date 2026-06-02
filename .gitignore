@@ -1,3 +1,4 @@
 .ghost-network
 *.log
 *.key
+config.json

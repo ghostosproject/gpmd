@@ -6,6 +6,7 @@ import (
 	"net"
 	"os"
 
+	"github.com/ghostosproject/gpmd/config"
 	"github.com/ghostosproject/gpmd/misc"
 	"github.com/google/uuid"
 	"github.com/libp2p/go-libp2p"
@@ -73,6 +74,17 @@ type ModuleVersion struct {
 	Version string `json:"version"`
 	File    string `json:"file"`
 	Hash    string `json:"hash"`
+}
+
+const discoverProtocolID = "/ghost/gpmd/0.1.0"
+
+func (md GPMD) Run(cfg config.Config) {
+	md.P2PHost.SetStreamHandler(discoverProtocolID, func(s network.Stream) {
+		go handleGPMDStream(s, &md)
+	})
+
+	go runBackgroundServer(&md, cfg.Ports.Background)
+	runGVMServer(&md, cfg.Ports.GVM)
 }
 
 func CreateGPMD(p2p bool, p2pPort, path string) GPMD {
